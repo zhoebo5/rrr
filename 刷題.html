@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>資訊科統測刷題王 | 練題、錯題複習與全國排行榜</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen font-sans pb-12">
+
+  <!-- 頂部導覽列 -->
+  <nav class="bg-slate-800 border-b border-slate-700 p-4 sticky top-0 z-10 shadow-md">
+    <div class="max-w-4xl mx-auto flex flex-wrap justify-between items-center gap-2">
+      <h1 class="text-xl font-bold text-cyan-400 flex items-center gap-2">
+        統測刷題王
+      </h1>
+      <div class="flex gap-2">
+        <button onclick="switchTab('quiz')" id="nav-quiz" class="px-3 py-1.5 rounded bg-cyan-600 hover:bg-cyan-500 text-sm font-bold transition">刷題區</button>
+        <button onclick="switchTab('mistakes')" id="nav-mistakes" class="px-3 py-1.5 rounded bg-slate-700 hover:bg-slate-600 text-sm font-medium transition">錯題本</button>
+        <button onclick="switchTab('leaderboard')" id="nav-leaderboard" class="px-3 py-1.5 rounded bg-slate-700 hover:bg-slate-600 text-sm font-medium transition">排行榜</button>
+      </div>
+    </div>
+  </nav>
+
+  <main class="max-w-4xl mx-auto p-4 mt-2">
+    
+    <!-- 戰士個人資訊與即時戰績列 -->
+    <div class="bg-slate-800 p-4 rounded-xl mb-6 flex flex-wrap justify-between items-center gap-4 border border-slate-700 shadow">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-full bg-cyan-900 flex items-center justify-center text-cyan-300 font-bold text-lg">
+          
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <span id="user-display" class="font-bold text-white text-base">載入身分中...</span>
+            <span id="school-display" class="text-xs px-2 py-0.5 bg-slate-700 text-cyan-300 rounded">載入中</span>
+            <button onclick="openProfileModal()" class="text-xs text-amber-400 hover:text-amber-300 underline ml-1">修改暱稱/學校</button>
+          </div>
+          <p class="text-xs text-slate-400 mt-0.5">雲端同步已開啟，刷題紀錄將自動計入排行榜</p>
+        </div>
+      </div>
+
+      <div class="flex gap-6 text-sm bg-slate-900 px-4 py-2.5 rounded-lg border border-slate-700">
+        <div class="text-center">
+          <div class="text-xs text-slate-400">總刷題數</div>
+          <div class="font-bold text-cyan-400 text-lg font-mono"><span id="stat-total">0</span> <span class="text-xs font-normal">題</span></div>
+        </div>
+        <div class="border-r border-slate-700"></div>
+        <div class="text-center">
+          <div class="text-xs text-slate-400">答對題數</div>
+          <div class="font-bold text-emerald-400 text-lg font-mono"><span id="stat-correct">0</span> <span class="text-xs font-normal">題</span></div>
+        </div>
+        <div class="border-r border-slate-700"></div>
+        <div class="text-center">
+          <div class="text-xs text-slate-400">目前正確率</div>
+          <div id="stat-acc" class="font-bold text-amber-400 text-lg font-mono">0%</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== 1. 刷題練習區 ==================== -->
+    <section id="tab-quiz" class="space-y-4">
+      <div class="flex flex-wrap justify-between items-center bg-slate-800 p-3.5 rounded-xl border border-slate-700 gap-2">
+        <div class="flex items-center gap-2">
+          <label class="text-sm text-slate-300 font-medium">特訓科目：</label>
+          <select id="subject-filter" onchange="filterBySubject()" class="bg-slate-900 text-cyan-300 border border-slate-600 rounded-lg px-3 py-1.5 text-sm font-medium focus:outline-none focus:border-cyan-500">
+            <option value="ALL"> 全部科目隨機混刷</option>
+            <option value="基本電學"> 基本電學 (專一)</option>
+            <option value="電子學"> 電子學 (專一)</option>
+            <option value="數位邏輯設計">數位邏輯設計 (專二)</option>
+            <option value="程式設計實習">程式設計實習 (專二)</option>
+            <option value="電腦硬體裝修丙級">電腦硬體裝修丙級</option>
+            <option value="網路架設丙級">網路架設丙級</option>
+          </select>
+        </div>
+        <div class="flex items-center gap-3">
+          <span id="q-counter" class="text-xs text-slate-400 font-mono">題庫載入中...</span>
+          <button onclick="nextQuestion()" class="text-xs px-3 py-1.5 bg-slate-700 hover:bg-slate-600 rounded-lg text-slate-200 transition">跳過 / 換一題 ➔</button>
+        </div>
+      </div>
+
+      <!-- 題目卡片 -->
+      <div class="bg-slate-800 p-6 rounded-xl border border-slate-700 shadow-lg">
+        <div class="mb-4">
+          <span id="q-subject" class="px-3 py-1 bg-cyan-950 text-cyan-300 border border-cyan-800 rounded-full text-xs font-semibold">載入中</span>
+        </div>
+        <h2 id="q-text" class="text-lg font-medium mb-6 leading-relaxed text-white">題目載入中，請稍候...</h2>
+        <div id="q-options" class="space-y-3"></div>
+
+        <!-- 詳解區 (作答後顯示) -->
+        <div id="q-explanation-box" class="hidden mt-6 p-5 rounded-xl bg-slate-900 border border-slate-700">
+          <p id="q-result-title" class="font-bold text-base mb-2"></p>
+          <p class="text-sm text-slate-300 leading-relaxed">
+            <strong class="text-cyan-400">【學霸詳解】</strong><span id="q-explanation"></span>
+          </p>
+          <button onclick="nextQuestion()" class="mt-4 w-full py-2.5 bg-cyan-600 hover:bg-cyan-500 rounded-lg font-bold text-white shadow transition">
+            繼續挑戰下一題 ➔
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== 2. 錯題複習區 ==================== -->
+    <section id="tab-mistakes" class="hidden space-y-4">
+      <div id="mistake-list" class="space-y-4"></div>
+    </section>
+
+    <!-- ==================== 3. 排行榜區 ==================== -->
+    <section id="tab-leaderboard" class="hidden space-y-4">
+      <div class="flex flex-wrap justify-between items-center bg-slate-800 p-4 rounded-xl border border-slate-700 gap-2">
+        <div>
+          <h2 class="text-lg font-bold text-amber-400">全國資訊科刷題風雲榜</h2>
+          <p class="text-xs text-slate-400">即時同步全站戰士的刷題數量與答題正確率</p>
+        </div>
+        <div class="flex gap-2">
+          <button onclick="loadLeaderboard('total')" id="btn-sort-total" class="px-3 py-1.5 bg-amber-600 text-white rounded-lg text-xs font-bold transition">依刷題量排序</button>
+          <button onclick="loadLeaderboard('acc')" id="btn-sort-acc" class="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-lg text-xs font-medium transition">依正確率排序</button>
+        </div>
+      </div>
+
+      <div class="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden shadow-lg">
+        <table class="w-full text-left border-collapse">
+          <thead>
+            <tr class="bg-slate-900/80 text-slate-400 text-xs uppercase border-b border-slate-700">
+              <th class="p-3.5 w-16 text-center">名次</th>
+              <th class="p-3.5">戰士暱稱 (學校/群科)</th>
+              <th class="p-3.5 text-right">答對 / 總題數</th>
+              <th class="p-3.5 text-right">正確率</th>
+            </tr>
+          </thead>
+          <tbody id="leaderboard-body" class="divide-y divide-slate-700/60 text-sm"></tbody>
+        </table>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ==================== 修改暱稱與學校 Modal 彈窗 ==================== -->
+  <div id="profile-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+    <div class="bg-slate-800 border border-slate-600 rounded-2xl max-w-md w-full p-6 shadow-2xl">
+      <h3 class="text-lg font-bold text-cyan-400 mb-1">設定你的檔案</h3>
+      <p class="text-xs text-slate-400 mb-4">設定後將顯示於全國排行榜上</p>
+      
+      <div class="space-y-4 text-sm">
+        <div>
+          <label class="block text-slate-300 mb-1 font-medium">你的暱稱：</label>
+          <input type="text" id="input-nickname" placeholder="例如：北科資工準新生、電學小霸王" class="w-full bg-slate-900 border border-slate-600 rounded-lg p-2.5 text-white focus:outline-none focus:border-cyan-500">
+        </div>
+        <div>
+          <label class="block text-slate-300 mb-1 font-medium">學校或稱號：</label>
+          <input type="text" id="input-school" placeholder="例如：大安高工 資訊科 / 統測戰士" class="w-full bg-slate-900 border border-slate-600 rounded-lg p-2.5 text-white focus:outline-none focus:border-cyan-500">
+        </div>
+      </div>
+
+      <div class="flex justify-end gap-2 mt-6">
+        <button onclick="closeProfileModal()" class="px-4 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-300 text-sm">取消</button>
+        <button onclick="saveProfile()" class="px-5 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-sm">儲存並更新排行榜</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== 核心程式邏輯區 ==================== -->
+  <script>
+    const SUPABASE_URL = 'https://latjwxnlmlkhvsjumofk.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxhdGp3eG5sbWxraHZzanVtb2ZrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTIzMjEyNzksImV4cCI6MjEwNzg5NzI3OX0.VY6-EsxbZBY_8OpbVH4A2o3bpjXETR0b-CNotGdlXrs';
+    const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    let currentUser = null;
+    let allQuestions = [];
+    let questions = [];
+    let currentQIndex = 0;
+
+    let currentMode = 'normal';
+    let mistakeQuestions = [];
+    let currentMistakeIndex = 0;
+
+    // 1. 初始化或讀取學生專屬 UUID 與雲端資料
+    async function initUserSession() {
+      let savedUserId = localStorage.getItem('vocational_hero_uid');
+      
+      if (!savedUserId) {
+        savedUserId = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+          const r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
+          return v.toString(16);
+        });
+        localStorage.setItem('vocational_hero_uid', savedUserId);
+      }
+
+      const { data: existingProfile } = await supabaseClient
+        .from('profiles')
+        .select('*')
+        .eq('id', savedUserId)
+        .maybeSingle();
+
+      if (existingProfile) {
+        currentUser = existingProfile;
+      } else {
+        const randomNum = Math.floor(1000 + Math.random() * 9000);
+        const newProfile = {
+          id: savedUserId,
+          nickname: `資電戰士#${randomNum}`,
+          school: '高職資訊科',
+          total_answered: 0,
+          correct_answered: 0
+        };
+        
+        const { data: insertedProfile, error: insertErr } = await supabaseClient
+          .from('profiles')
+          .insert(newProfile)
+          .select()
+          .maybeSingle();
+
+        if (!insertErr && insertedProfile) {
+          currentUser = insertedProfile;
+          openProfileModal();
+        } else {
+          currentUser = newProfile;
+        }
+      }
+
+      updateUserHeaderUI();
+    }
+
+    function updateUserHeaderUI() {
+      if (!currentUser) return;
+      document.getElementById('user-display').innerText = currentUser.nickname;
+      document.getElementById('school-display').innerText = currentUser.school;
+      document.getElementById('stat-total').innerText = currentUser.total_answered;
+      document.getElementById('stat-correct').innerText = currentUser.correct_answered;
+      
+      const acc = currentUser.total_answered > 0 
+        ? ((currentUser.correct_answered / currentUser.total_answered) * 100).toFixed(1) 
+        : 0;
+      document.getElementById('stat-acc').innerText = `${acc}%`;
+    }
+
+    function openProfileModal() {
+      if (!currentUser) return;
+      document.getElementById('input-nickname').value = currentUser.nickname;
+      document.getElementById('input-school').value = currentUser.school;
+      document.getElementById('profile-modal').classList.remove('hidden');
+    }
+
+    function closeProfileModal() {
+      document.getElementById('profile-modal').classList.add('hidden');
+    }
+
+    async function saveProfile() {
+      const newNickname = document.getElementById('input-nickname').value.trim();
+      const newSchool = document.getElementById('input-school').value.trim();
+      
+      if (!newNickname) {
+        alert('暱稱不能空白喔！');
+        return;
+      }
+
+      const { error } = await supabaseClient
+        .from('profiles')
+        .update({ 
+          nickname: newNickname, 
+          school: newSchool || '高職資訊科',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', currentUser.id);
+
+      if (error) {
+        alert('更新失敗：' + error.message);
+      } else {
+        currentUser.nickname = newNickname;
+        currentUser.school = newSchool || '高職資訊科';
+        updateUserHeaderUI();
+        closeProfileModal();
+        if (!document.getElementById('tab-leaderboard').classList.contains('hidden')) {
+          loadLeaderboard('total');
+        }
+      }
+    }
+
+    // 2. 載入題庫並隨機洗牌
+    async function initApp() {
+      await initUserSession();
+
+      const { data: qData, error } = await supabaseClient.from('questions').select('*');
+      if (qData && qData.length > 0) {
+        allQuestions = qData;
+        filterBySubject();
+      } else {
+        document.getElementById('q-text').innerText = '讀取不到題目，請檢查網路或 Supabase 設定。' + (error ? error.message : '');
+      }
+    }
+
+    function filterBySubject() {
+      const selected = document.getElementById('subject-filter').value;
+      if (selected === 'ALL') {
+        questions = [...allQuestions];
+      } else {
+        questions = allQuestions.filter(q => q.subject === selected);
+      }
+
+      for (let i = questions.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [questions[i], questions[j]] = [questions[j], questions[i]];
+      }
+
+      currentQIndex = 0;
+      document.getElementById('q-counter').innerText = `本區共 ${questions.length} 題`;
+
+      if (questions.length > 0) {
+        renderQuestion();
+      } else {
+        document.getElementById('q-subject').innerText = selected;
+        document.getElementById('q-text').innerText = `【${selected}】目前還沒有題目喔！快去試算表補充題庫吧！`;
+        document.getElementById('q-options').innerHTML = '';
+        document.getElementById('q-explanation-box').classList.add('hidden');
+      }
+    }
+
+    function renderQuestion() {
+      const activeList = (currentMode === 'mistake') ? mistakeQuestions : questions;
+      const idx = (currentMode === 'mistake') ? currentMistakeIndex : currentQIndex;
+      
+      if (!activeList || activeList.length === 0) return;
+      const q = activeList[idx];
+
+      document.getElementById('q-subject').innerText = (currentMode === 'mistake') ? `[錯題重練] ${q.subject}` : q.subject;
+      document.getElementById('q-text').innerText = `${idx + 1}. ${q.question_text}`;
+      document.getElementById('q-explanation-box').classList.add('hidden');
+
+      const optionsBox = document.getElementById('q-options');
+      optionsBox.innerHTML = '';
+      
+      const parsedOptions = typeof q.options === 'string' ? JSON.parse(q.options) : q.options;
+
+      parsedOptions.forEach((opt, optIdx) => {
+        const btn = document.createElement('button');
+        btn.className = 'w-full text-left p-4 rounded-xl bg-slate-700/70 hover:bg-slate-600 transition border border-slate-600 font-medium text-slate-100';
+        btn.innerText = opt;
+        btn.onclick = () => checkAnswer(optIdx);
+        optionsBox.appendChild(btn);
+      });
+    }
+
+    // 3. 檢查答案並同步雲端戰績與錯題本
+    async function checkAnswer(selectedIndex) {
+      const activeList = (currentMode === 'mistake') ? mistakeQuestions : questions;
+      const idx = (currentMode === 'mistake') ? currentMistakeIndex : currentQIndex;
+      const q = activeList[idx];
+      const isCorrect = (selectedIndex === q.correct_option);
+
+      const buttons = document.getElementById('q-options').children;
+      for (let i = 0; i < buttons.length; i++) {
+        buttons[i].disabled = true;
+        if (i === q.correct_option) {
+          buttons[i].className = 'w-full text-left p-4 rounded-xl bg-emerald-700 border-2 border-emerald-400 font-bold text-white shadow';
+        } else if (i === selectedIndex && !isCorrect) {
+          buttons[i].className = 'w-full text-left p-4 rounded-xl bg-rose-800 border-2 border-rose-400 font-bold text-white';
+        } else {
+          buttons[i].className = 'w-full text-left p-4 rounded-xl bg-slate-800 border border-slate-700 text-slate-500 opacity-60';
+        }
+      }
+
+      const expBox = document.getElementById('q-explanation-box');
+      const title = document.getElementById('q-result-title');
+      
+      if (isCorrect) {
+        title.innerText = (currentMode === 'mistake') 
+          ? '太神啦！這題觀念徹底救回來了，已自動從錯題本除名！' 
+          : '答對了！戰績 +1，繼續保持這個節奏！';
+        title.className = 'font-bold text-base mb-2 text-emerald-400';
+      } else {
+        title.innerText = '答錯了！別灰心，這題已自動收錄進你的「錯題本」供考前特訓！';
+        title.className = 'font-bold text-base mb-2 text-rose-400';
+      }
+      document.getElementById('q-explanation').innerText = q.explanation;
+      expBox.classList.remove('hidden');
+
+      if (currentUser) {
+        currentUser.total_answered += 1;
+        if (isCorrect) currentUser.correct_answered += 1;
+        updateUserHeaderUI();
+
+        await supabaseClient
+          .from('profiles')
+          .update({
+            total_answered: currentUser.total_answered,
+            correct_answered: currentUser.correct_answered,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', currentUser.id);
+
+        if (currentMode === 'mistake' && isCorrect) {
+          await supabaseClient
+            .from('user_records')
+            .update({ in_mistake_book: false })
+            .eq('user_id', currentUser.id)
+            .eq('question_id', q.id);
+        } else if (!isCorrect) {
+          await supabaseClient
+            .from('user_records')
+            .insert({
+              user_id: currentUser.id,
+              question_id: q.id,
+              is_correct: false,
+              in_mistake_book: true
+            });
+        }
+      }
+    }
+
+    function nextQuestion() {
+      if (currentMode === 'mistake') {
+        currentMistakeIndex = (currentMistakeIndex + 1) % mistakeQuestions.length;
+      } else {
+        currentQIndex = (currentQIndex + 1) % questions.length;
+      }
+      renderQuestion();
+    }
+
+    // 4. 載入錯題本與啟動錯題特訓
+    async function loadMistakeBook() {
+      const container = document.getElementById('mistake-list');
+      container.innerHTML = '<div class="text-center p-8 text-slate-400">正在從雲端調閱你的錯題紀錄...</div>';
+
+      const { data } = await supabaseClient
+        .from('user_records')
+        .select('question_id, questions(*)')
+        .eq('user_id', currentUser.id)
+        .eq('in_mistake_book', true);
+
+      container.innerHTML = '';
+
+      const uniqueMap = new Map();
+      if (data) {
+        data.forEach(item => {
+          if (item.questions) uniqueMap.set(item.questions.id, item.questions);
+        });
+      }
+      mistakeQuestions = Array.from(uniqueMap.values());
+
+      if (mistakeQuestions.length === 0) {
+        container.innerHTML = `
+          <div class="bg-slate-800 p-10 rounded-xl text-center border border-slate-700 shadow">
+            <div class="text-4xl mb-3"></div>
+            <p class="text-emerald-400 font-bold text-lg mb-1">太強了！你的錯題本目前是空的！</p>
+            <p class="text-slate-400 text-sm">去「刷題區」多挑戰幾題吧，遇到不會的題目系統會自動幫你抓進來。</p>
+          </div>`;
+        return;
+      }
+
+      container.innerHTML = `
+        <div class="flex flex-wrap justify-between items-center bg-rose-950/40 p-4 rounded-xl border border-rose-800/60 gap-2">
+          <div>
+            <h2 class="text-lg font-bold text-rose-400">待消滅錯題庫（共 ${mistakeQuestions.length} 題）</h2>
+            <p class="text-xs text-slate-300">只要在錯題特訓中重新答對，題目就會自動從錯題本中消除！</p>
+          </div>
+          <button onclick="startMistakeTraining(0)" class="px-4 py-2 bg-rose-600 hover:bg-rose-500 rounded-lg font-bold text-sm text-white shadow transition">
+            全部錯題開始特訓
+          </button>
+        </div>
+        <div id="mistake-items" class="space-y-3 mt-4"></div>
+      `;
+
+      const listEl = document.getElementById('mistake-items');
+      mistakeQuestions.forEach((q, idx) => {
+        listEl.innerHTML += `
+          <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 flex justify-between items-center gap-4 hover:border-slate-600 transition">
+            <div>
+              <span class="text-xs px-2.5 py-0.5 bg-slate-700 text-cyan-300 rounded font-medium">${q.subject}</span>
+              <p class="font-medium text-slate-100 mt-2 text-sm leading-relaxed">${idx + 1}. ${q.question_text}</p>
+            </div>
+            <button onclick="startMistakeTraining(${idx})" class="shrink-0 px-3 py-1.5 bg-slate-700 hover:bg-cyan-600 rounded-lg text-xs font-bold transition">
+              單題消滅 ➔
+            </button>
+          </div>
+        `;
+      });
+    }
+
+    function startMistakeTraining(startIndex = 0) {
+      currentMode = 'mistake';
+      currentMistakeIndex = startIndex;
+      
+      document.getElementById('tab-mistakes').classList.add('hidden');
+      document.getElementById('tab-quiz').classList.remove('hidden');
+      document.getElementById('subject-filter').disabled = true;
+      document.getElementById('q-counter').innerText = `錯題消滅模式 (共 ${mistakeQuestions.length} 題)`;
+      renderQuestion();
+    }
+
+    // 5. 載入全國排行榜
+    async function loadLeaderboard(sortBy = 'total') {
+      document.getElementById('btn-sort-total').className = sortBy === 'total' 
+        ? 'px-3 py-1.5 bg-amber-600 text-white rounded-lg text-xs font-bold transition'
+        : 'px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-lg text-xs font-medium transition';
+      document.getElementById('btn-sort-acc').className = sortBy === 'acc' 
+        ? 'px-3 py-1.5 bg-amber-600 text-white rounded-lg text-xs font-bold transition'
+        : 'px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-lg text-xs font-medium transition';
+
+      const tbody = document.getElementById('leaderboard-body');
+      tbody.innerHTML = '<tr><td colspan="4" class="p-6 text-center text-slate-400">排行榜數據同步中...</td></tr>';
+
+      let query = supabaseClient.from('leaderboard_view').select('*');
+      if (sortBy === 'acc') {
+        query = query.order('accuracy_rate', { ascending: false }).order('total_answered', { ascending: false });
+      } else {
+        query = query.order('total_answered', { ascending: false }).order('accuracy_rate', { ascending: false });
+      }
+
+      const { data } = await query.limit(30);
+      tbody.innerHTML = '';
+
+      if (!data || data.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" class="p-6 text-center text-slate-400">目前尚無排行資料，快去刷題搶下全國第一！</td></tr>';
+        return;
+      }
+
+      data.forEach((row, index) => {
+        const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `#${index + 1}`;
+        const isMe = currentUser && row.id === currentUser.id;
+        const rowBg = isMe ? 'bg-cyan-950/50 border-l-4 border-cyan-400' : 'hover:bg-slate-700/40';
+
+        tbody.innerHTML += `
+          <tr class="${rowBg} transition">
+            <td class="p-3.5 font-bold text-center text-base">${medal}</td>
+            <td class="p-3.5">
+              <span class="font-bold ${isMe ? 'text-cyan-300' : 'text-white'}">${row.nickname}</span>
+              ${isMe ? '<span class="ml-1.5 text-[10px] px-1.5 py-0.5 bg-cyan-600 text-white rounded">我</span>' : ''}
+              <div class="text-xs text-slate-400 mt-0.5">${row.school || '高職資訊科'}</div>
+            </td>
+            <td class="p-3.5 text-right font-mono">
+              <span class="text-emerald-400 font-bold">${row.correct_answered}</span>
+              <span class="text-slate-500"> / </span>
+              <span class="text-cyan-300">${row.total_answered}</span>
+            </td>
+            <td class="p-3.5 text-right font-mono font-bold text-amber-400">${row.accuracy_rate}%</td>
+          </tr>
+        `;
+      });
+    }
+
+    function switchTab(tab) {
+      ['quiz', 'mistakes', 'leaderboard'].forEach(t => {
+        document.getElementById(`tab-${t}`).classList.add('hidden');
+        document.getElementById(`nav-${t}`).className = 'px-3 py-1.5 rounded bg-slate-700 hover:bg-slate-600 text-sm font-medium transition';
+      });
+
+      document.getElementById(`tab-${tab}`).classList.remove('hidden');
+      document.getElementById(`nav-${tab}`).className = 'px-3 py-1.5 rounded bg-cyan-600 hover:bg-cyan-500 text-sm font-bold transition';
+
+      if (tab === 'quiz') {
+        currentMode = 'normal';
+        document.getElementById('subject-filter').disabled = false;
+        filterBySubject();
+      } else if (tab === 'mistakes') {
+        loadMistakeBook();
+      } else if (tab === 'leaderboard') {
+        loadLeaderboard('total');
+      }
+    }
+
+    initApp();
+  </script>
+</body>
+</html>
