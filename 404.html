@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>刷題吧！已搬家</title>
+  <meta name="robots" content="noindex">
+  <link rel="canonical" href="https://zhoebo5.github.io/shuatiba/">
+  <meta http-equiv="refresh" content="3; url=https://zhoebo5.github.io/shuatiba/">
+  <script>
+    // 保留舊網址後面的路徑、查詢參數和 #（Supabase 登入信的連結需要 #）
+    (function () {
+      var rest = location.pathname.replace(/^\/rrr\/?/, '');
+      var target = 'https://zhoebo5.github.io/shuatiba/' + rest + location.search + location.hash;
+      // 舊網址的離線快取（service worker）會一直攔截，順手解除
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then(function (rs) { rs.forEach(function (r) { r.unregister(); }); }).catch(function () {});
+      }
+      location.replace(target);
+    })();
+  </script>
+  <style>
+    body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;font-family:"Noto Sans TC","Microsoft JhengHei",system-ui,sans-serif;background:#f1f6fb;color:#14202e;padding:16px;box-sizing:border-box;text-align:center}
+    a{color:#0a6aa8;font-weight:700}
+    @media (prefers-color-scheme: dark){body{background:#0f1a2b;color:#f4f8fd}a{color:#5bb8ef}}
+  </style>
+</head>
+<body>
+  <p>網站已改名為「刷題吧！」並搬到新網址，正在幫你跳轉……<br><br>
+  沒有自動跳轉的話請點：<a href="https://zhoebo5.github.io/shuatiba/">zhoebo5.github.io/shuatiba</a><br>
+  <small>加到手機主畫面的人，請刪掉舊的捷徑，從新網址重新加一次。</small></p>
+</body>
+</html>
